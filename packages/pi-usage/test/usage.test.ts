@@ -1825,6 +1825,46 @@ test("Command Code publishes statusline usage from the alpha endpoints", async (
   mock.events.get("session_shutdown")?.[0]?.({}, ctx);
 });
 
+test("Codex status uses quota colors for the whole inline balance, independently of displayed used percentage", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.onTestFinished(() => {
+    globalThis.fetch = originalFetch;
+  });
+  for (const [used, color] of [
+    [100, "error"],
+    [80.1, "warning"],
+    [80, "success"],
+    [0, "success"],
+  ] as const) {
+    globalThis.fetch = async () =>
+      Response.json({
+        rate_limit: { primary_window: { used_percent: used, limit_window_seconds: 604_800 } },
+        credits: { has_credits: true, balance: "39570" },
+      });
+    const mock = createMockPi();
+    usageExtension(mock.pi, { settingsRuntime: memorySettingsRuntime({ codexStatusPercentage: "used" }).runtime });
+    const { ctx, statuses } = createMockContext({
+      model: codexModel,
+      theme: { fg: (role: string, text: string) => `<${role}>${text}</${role}>` },
+      modelRegistry: {
+        getApiKeyAndHeaders: async () => ({ ok: true, apiKey: codexToken }),
+        getProviderAuth: async () => ({ auth: { apiKey: codexToken } }),
+        getAvailable: () => [codexModel],
+        getAll: () => [codexModel],
+        getProviderAuthStatus: () => ({ configured: true }),
+        getProviderDisplayName: testProviderDisplayName,
+      },
+    });
+    try {
+      await mock.events.get("session_start")?.[0]?.({}, ctx);
+      await settle();
+      assert.equal(statuses.get("usage"), `<${color}>codex wk:${Math.round(used)}% 39.57k</${color}>`);
+    } finally {
+      mock.events.get("session_shutdown")?.[0]?.({}, ctx);
+    }
+  }
+});
+
 test("automatic provider failures back off instead of retrying every turn", async (t) => {
   const originalFetch = globalThis.fetch;
   t.onTestFinished(() => {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import { codexQuotaStatusColor } from "../src/format.js";
 import { formatUsageReport, formatUsageStatusline, normalizeCodexBackendPayload } from "../src/index.js";
 
 function report(balance?: string | number) {
@@ -51,6 +52,36 @@ test("unknown and invalid balances do not add a misleading zero or trailing spac
     if (value !== undefined) usage.metrics.push({ id: "credits", label: "Credits", value });
     assert.equal(formatUsageStatusline(usage, undefined, 1000, false), "codex 5h:80% · wk:60%");
   }
+});
+
+test("quota color follows the displayed Codex group, not credits or a missing quota", () => {
+  const usage = normalizeCodexBackendPayload(
+    {
+      rate_limit: { primary_window: { used_percent: 100, limit_window_seconds: 604_800 } },
+      credits: { has_credits: true, balance: "39570" },
+      additional_rate_limits: [
+        {
+          limit_name: "GPT-5.3 Codex Spark",
+          metered_feature: "gpt-5.3-codex-spark",
+          rate_limit: { primary_window: { used_percent: 10, limit_window_seconds: 18_000 } },
+        },
+      ],
+    },
+    1000,
+  );
+  assert.equal(
+    codexQuotaStatusColor(usage, { provider: "openai-codex-account-3", id: "model", name: "Model" }),
+    "error",
+  );
+  assert.equal(
+    codexQuotaStatusColor(usage, { provider: "openai-codex", id: "gpt-5.3-codex-spark", name: "Codex Spark" }),
+    "success",
+  );
+  assert.equal(codexQuotaStatusColor({ ...usage, providerId: "openrouter" }), undefined);
+  assert.equal(codexQuotaStatusColor({ ...usage, buckets: [] }), undefined);
+  const unknown = report();
+  unknown.buckets[0].remaining = undefined;
+  assert.equal(codexQuotaStatusColor(unknown), undefined);
 });
 
 test("credit-only reports stay compact while an empty quota template stays hidden", () => {

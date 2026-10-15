@@ -73,6 +73,18 @@ export function formatUsageStatusline(
     .value;
 }
 
+export function codexQuotaStatusColor(
+  report: UsageReport,
+  model?: UsageModel,
+): "error" | "warning" | "success" | undefined {
+  if (report.providerId !== "openai-codex") return undefined;
+  const group = selectCodexGroup(report, model);
+  const primary = report.buckets.find((bucket) => bucket.id === `${group}:primary`);
+  const remaining = primary?.remaining;
+  if (remaining === undefined || !Number.isFinite(remaining)) return undefined;
+  return remaining <= 0 ? "error" : remaining < 20 ? "warning" : "success";
+}
+
 interface StatusCountdown {
   now: number;
   active: boolean;

@@ -20,7 +20,7 @@ import {
   resolveCodexResetAuth,
 } from "./codex-resets.js";
 import { abortError, awaitWithDeadline, errorMessage, runWithConcurrency, UsageCache } from "./core.js";
-import { formatProviderStates, formatUsageStatuslineWithCountdown } from "./format.js";
+import { codexQuotaStatusColor, formatProviderStates, formatUsageStatuslineWithCountdown } from "./format.js";
 import { createOAuthCredentialCandidateReader } from "./oauth-credential-source.js";
 import { UnsupportedOpenAIUsageAuthError } from "./providers/openai-chatgpt.js";
 import {
@@ -122,9 +122,13 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
     clearStatusCountdownTimer();
   };
 
-  const safeSetStatus = (ctx: ExtensionContext, value: string | undefined): boolean => {
+  const safeSetStatus = (
+    ctx: ExtensionContext,
+    value: string | undefined,
+    color?: ReturnType<typeof codexQuotaStatusColor>,
+  ): boolean => {
     try {
-      ctx.ui.setStatus(STATUS_KEY, value);
+      ctx.ui.setStatus(STATUS_KEY, value && color ? ctx.ui.theme.fg(color, value) : value);
       return true;
     } catch (error) {
       if (isStaleExtensionContextError(error)) return false;
@@ -191,8 +195,8 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
       settings.statuslineDisplay,
       (prefix) => fastRuntime.decorateStatus(model, prefix),
     );
-    const value = status.value;
-    if (!safeSetStatus(ctx, value)) return;
+    const color = codexQuotaStatusColor(outcome.state.report, model);
+    if (!safeSetStatus(ctx, status.value, color)) return;
     if (shouldSchedule && sessionActive) scheduleStatusRefresh(ctx, model);
     if (
       sessionActive &&

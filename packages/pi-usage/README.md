@@ -224,6 +224,8 @@ After the active runtime credential changes, the next command, turn, or schedule
 
 In this fork, a known Codex credit balance follows the quota windows in the **same status item**, separated by one space: `codex 5h:80% · wk:60% 43.29k`. Countdown mode keeps its existing quota layout and appends the same balance. Values use two decimal places with `k`/`M`, `∞` for unlimited, and no unit label; missing or invalid balances are omitted. The detailed `/usage` report keeps the full numeric balance. This is remaining credit, not this message's cost, and uses the existing query/cache without extra requests.
 
+Codex status text, including its inline credit balance, uses the active Pi theme's `error` color at 0% remaining, `warning` below 20%, and `success` otherwise, based on the displayed group's primary quota window (which may be weekly). This restores the retired helper's colors. Colors reflect **included quota**, not whether credit-backed inference is allowed; a red quota can coexist with usable credits. The threshold always uses remaining quota even when the displayed percentage is configured as used. Missing primary quota, other providers, and transient checking/error messages keep their existing uncolored presentation.
+
 To avoid duplicate displays with the pi-multi-account fork, set `"showUsageStatusline": false` while retaining `"showUsage": true` in `provider-failover.json`, and remove the old `compact-codex-quota.ts` helper from Pi's auto-loaded extensions. This extension owns presentation; multi-account still owns routing and its background telemetry.
 
 The `usage` status item is active only for selected providers that publish statusline usage.

@@ -15,6 +15,7 @@ This is a personal fork of [narumiruna/pi-extensions](https://github.com/narumir
 - Recognizes the selected `openai-codex-account-N` as its own account, rather than reporting it as unsupported.
 - Shows included quota and credits together, including when included quota has reached zero.
 - Places compact credit balance immediately after the quota windows in one status item, e.g. `codex 5h:80% · wk:60% 43.29k`, without a separate label or status block.
+- Colors the Codex status using Pi's quota theme roles: error at zero remaining, warning below 20%, success otherwise. Color describes included quota, not credit availability.
 - Reads only the selected slot's credentials and validates them against the runtime account and endpoint.
 - Refuses missing, expired, or mismatched credentials instead of displaying another account's balance.
 - Builds the runtime from source; there are no hand-edited generated chunks or machine-specific test imports.
