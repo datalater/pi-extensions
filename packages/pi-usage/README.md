@@ -222,6 +222,10 @@ After the active runtime credential changes, the next command, turn, or schedule
 
 ## 📊 Statusline behavior
 
+In this fork, a known Codex credit balance follows the quota windows in the **same status item**, separated by one space: `codex 5h:80% · wk:60% 43.29k`. Countdown mode keeps its existing quota layout and appends the same balance. Values use two decimal places with `k`/`M`, `∞` for unlimited, and no unit label; missing or invalid balances are omitted. The detailed `/usage` report keeps the full numeric balance. This is remaining credit, not this message's cost, and uses the existing query/cache without extra requests.
+
+To avoid duplicate displays with the pi-multi-account fork, set `"showUsageStatusline": false` while retaining `"showUsage": true` in `provider-failover.json`, and remove the old `compact-codex-quota.ts` helper from Pi's auto-loaded extensions. This extension owns presentation; multi-account still owns routing and its background telemetry.
+
 The `usage` status item is active only for selected providers that publish statusline usage.
 By default, Codex, Command Code, Kimi, MiniMax Token Plan, Z.AI, and OpenCode Go separate quota windows with ` · ` and place static labels before values, for example `cmd 5h:100% · wk:97% · mo:98%`.
 Countdown segments retain their spacing without window labels, for example `codex 89% ↻ 2h30m · 97% ↻ 5d17h`; a missing reset time falls back to a static label, such as `codex 89% ↻ 2h30m · wk:97%`.

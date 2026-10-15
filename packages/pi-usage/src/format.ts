@@ -690,9 +690,22 @@ function formatCodexStatusline(
     const reset = showResetCountdown ? formatResetCountdown(bucket.resetsAt, now) : undefined;
     parts.push(renderQuotaWindow(percent, window, reset, display));
   }
-  return parts.length > 0
-    ? renderQuotaStatusline(prefix, parts, display)
-    : decoratePrefix(formatCodexCreditsStatus(report));
+  if (parts.length === 0) return decoratePrefix(formatCodexCreditsStatus(report));
+  const quota = renderQuotaStatusline(prefix, parts, display);
+  const credits = formatCompactCodexBalance(report);
+  return quota && credits !== undefined ? `${quota} ${credits}` : quota;
+}
+
+function formatCompactCodexBalance(report: UsageReport): string | undefined {
+  const value = report.metrics.find((metric) => metric.id === "credits")?.value;
+  if (value === "unlimited") return "∞";
+  if (value === "none") return "0";
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return undefined;
+  // Promote at the rounding boundary instead of displaying 1000.00k.
+  if (value >= 999_995) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 999.995) return `${(value / 1_000).toFixed(2)}k`;
+  if (value > 0 && value < 0.01) return "<0.01";
+  return value.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
 
 function formatCodexCreditsStatus(report: UsageReport): string {
@@ -701,7 +714,8 @@ function formatCodexCreditsStatus(report: UsageReport): string {
   if (credits.value === "none") return "codex no credits";
   if (credits.value === "available") return "codex credits available";
   if (credits.value === "unlimited") return "codex credits unlimited";
-  return `codex ${formatMetricValue(credits.value, "count")} credits`;
+  const balance = formatCompactCodexBalance(report);
+  return balance === undefined ? "codex usage unavailable" : `codex ${balance}`;
 }
 
 function selectCodexGroup(report: UsageReport, model?: UsageModel): string | undefined {
