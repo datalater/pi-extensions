@@ -239,7 +239,7 @@ These providers fall back to their existing static output when reset times are m
 Their countdowns are not controlled by the Codex-only settings. Codex and ChatGPT companion retain their existing reset behavior, including `↻ 0m` for expired returned resets.
 Countdowns repaint locally every minute while a displayed eligible reset remains in the future, without additional provider requests; hidden windows and unselected model groups do not activate this repaint for the newly supported providers.
 
-It refreshes every five minutes while the session remains on such a provider and is cleared when the model changes to an unsupported or menu-only provider.
+It queries on session startup/resume without requiring a prompt, then refreshes every five minutes while the session remains on such a provider. `checking` is temporary while that read-only lookup runs. For numbered Codex slots, if token or model-route changes invalidate the query before publication, the current refresh retries up to twice; continued changes produce an error status rather than leaving `checking` indefinitely. Superseded or shutdown sessions do not retry or publish. The status is cleared when the model changes to an unsupported or menu-only provider.
 DeepSeek publishes each returned currency as a separate exact balance segment and reports when the API is unavailable.
 Fireworks publishes exact per-currency rated spend totals and reports when no rated usage exists.
 Moonshot AI publishes the available balance with its region-native currency.

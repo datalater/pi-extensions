@@ -19,6 +19,7 @@ import {
   resetOptionExpiration,
   resolveCodexResetAuth,
 } from "./codex-resets.js";
+import { isCodexSlot } from "./codex-slot-auth.js";
 import { abortError, awaitWithDeadline, errorMessage, runWithConcurrency, UsageCache } from "./core.js";
 import { codexQuotaStatusColor, formatProviderStates, formatUsageStatuslineWithCountdown } from "./format.js";
 import { createOAuthCredentialCandidateReader } from "./oauth-credential-source.js";
@@ -50,6 +51,7 @@ import { createUsageTargetSelectOptions, listUsageTargets, resolveUsageTarget } 
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const STATUS_COUNTDOWN_REFRESH_MS = 60 * 1000;
+const MAX_STATUS_REVALIDATION_RETRIES = 2;
 const DEFAULT_TIMEOUT_MS = 15_000;
 const COMMAND_CODE_REVALIDATION_RESERVE_MS = 1_000;
 const ALL_PROVIDER_CONCURRENCY = 2;
@@ -579,7 +581,12 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
     return queryAdapterState(ctx, adapter, "current", force, signal);
   };
 
-  const refreshCurrentStatus = async (ctx: ExtensionContext, model: PiModel | undefined, force: boolean) => {
+  const refreshCurrentStatus = async (
+    ctx: ExtensionContext,
+    model: PiModel | undefined,
+    force: boolean,
+    revalidationRetries = 0,
+  ): Promise<void> => {
     const adapter = adapterForProvider(model?.provider);
     if (!adapter || !model) {
       const providerId = model?.provider ?? "none";
@@ -603,12 +610,31 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
       const outcome = await queryCurrentState(ctx, model, force, controller.signal);
       if (!sessionActive || generation !== statusGeneration || controller.signal.aborted) return;
       if (!(await outcomeStillCurrent(ctx, model, generation, outcome, controller.signal))) {
+        if (isCodexSlot(adapter.id)) throw abortError();
         if (sessionActive && generation === statusGeneration) {
           queueMicrotask(() => startStatusRefresh(ctx, ctx.model, false));
         }
         return;
       }
       publishStatus(ctx, outcome, model, true);
+    } catch (error) {
+      // A request-boundary identity guard may abort without cancelling this refresh owner.
+      // Restart that lookup now; otherwise startup can leave "checking" until the first turn.
+      if (
+        isCodexSlot(adapter.id) &&
+        isAbortError(error) &&
+        sessionActive &&
+        generation === statusGeneration &&
+        !controller.signal.aborted
+      ) {
+        if (revalidationRetries < MAX_STATUS_REVALIDATION_RETRIES) {
+          await refreshCurrentStatus(ctx, ctx.model, false, revalidationRetries + 1);
+        } else if (safeSetStatus(ctx, "usage err: account kept changing; retry /usage") && ctx.model) {
+          scheduleStatusRefresh(ctx, ctx.model);
+        }
+        return;
+      }
+      throw error;
     } finally {
       activeControllers.delete(controller);
       if (statusController === controller) statusController = undefined;

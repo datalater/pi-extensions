@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { afterAll, test, vi } from "vitest";
+import { createMockContext, createMockPi } from "../../../test/support.js";
 
 const dir = mkdtempSync(join(tmpdir(), "pi-usage-slot-test-"));
 vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => ({
@@ -13,6 +14,7 @@ vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => ({
 const source = await import("../src/query.js");
 const { resolveCodexSlotAuth } = await import("../src/codex-slot-auth.js");
 const { formatUsageReport } = await import("../src/format.js");
+const { default: usageExtension } = await import("../src/usage.js");
 const slot = "openai-codex-account-3";
 const salt = new Uint8Array([1, 2, 3]);
 const token = (id: string, exp = Date.now() / 1000 + 3600) =>
@@ -150,6 +152,95 @@ test("wrong-account usage responses are rejected", async () => {
     globalThis.fetch = original;
   }
 });
+for (const change of ["none", "token", "route", "continuous"] as const) {
+  test(`startup status settles without a prompt when slot changes: ${change}`, async () => {
+    store();
+    const originalFetch = globalThis.fetch;
+    const mock = createMockPi();
+    usageExtension(mock.pi);
+    const model = {
+      provider: slot,
+      id: "test-model",
+      name: "Test model",
+      api: "openai-codex-responses",
+      baseUrl: `http://127.0.0.1:41977/${slot}`,
+    };
+    const current = createMockContext({
+      model,
+      modelRegistry: { getApiKeyAndHeaders: async () => ({ ok: true, apiKey: placeholder }) },
+    });
+    let requests = 0;
+    globalThis.fetch = async (url, options) => {
+      assert.equal(String(url), "https://chatgpt.com/backend-api/wham/usage");
+      requests++;
+      const accountId = new Headers(options?.headers).get("chatgpt-account-id");
+      if ((requests === 1 && change === "token") || change === "continuous")
+        store(credential(`account-next-${requests}`));
+      if (requests === 1 && change === "route") model.baseUrl = `http://127.0.0.1:41978/${slot}`;
+      return Response.json({
+        account_id: accountId,
+        rate_limit: { primary_window: { used_percent: 100, limit_window_seconds: 604800 } },
+        credits: { has_credits: true, balance: "39570" },
+      });
+    };
+    try {
+      await mock.events.get("session_start")?.[0]?.({}, current.ctx);
+      await vi.waitFor(
+        () => {
+          const status = current.statuses.get("usage");
+          assert.ok(status && status !== "checking", "startup must settle without turn_start or a user message");
+          if (change === "continuous") assert.match(status, /usage err:/);
+          else assert.match(status, /39\.57k/);
+        },
+        { timeout: 500 },
+      );
+      assert.equal(requests, change === "none" ? 1 : change === "continuous" ? 3 : 2);
+    } finally {
+      for (const handler of mock.events.get("session_shutdown") ?? []) await handler({}, current.ctx);
+      globalThis.fetch = originalFetch;
+    }
+  });
+}
+
+test("shutdown during startup checking does not restart or publish the cancelled slot query", async () => {
+  store();
+  const originalFetch = globalThis.fetch;
+  const mock = createMockPi();
+  usageExtension(mock.pi);
+  const current = createMockContext({
+    model: {
+      provider: slot,
+      id: "test-model",
+      name: "Test model",
+      api: "openai-codex-responses",
+      baseUrl: `http://127.0.0.1:41977/${slot}`,
+    },
+    modelRegistry: { getApiKeyAndHeaders: async () => ({ ok: true, apiKey: placeholder }) },
+  });
+  let requests = 0;
+  let release: (response: Response) => void = () => {};
+  globalThis.fetch = () => {
+    requests++;
+    return new Promise<Response>((resolve) => {
+      release = resolve;
+    });
+  };
+  try {
+    await mock.events.get("session_start")?.[0]?.({}, current.ctx);
+    await vi.waitFor(() => assert.equal(requests, 1), { timeout: 500 });
+    for (const handler of mock.events.get("session_shutdown") ?? []) await handler({}, current.ctx);
+    store(credential("changed-after-shutdown"));
+    release(Response.json({ account_id: "account-3", credits: { has_credits: true, balance: "39570" } }));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(requests, 1);
+    assert.equal(current.statuses.get("usage"), undefined);
+  } finally {
+    for (const handler of mock.events.get("session_shutdown") ?? []) await handler({}, current.ctx);
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("query stops if account revalidation fails before request", async () => {
   store();
   const a = source.adapterForProvider(slot);
