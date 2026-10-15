@@ -1,14 +1,19 @@
-# 📊 pi-usage — Check Provider Usage, API Balance, and Codex Fast Mode
+# 📊 pi-usage — Datalater Fork with Numbered Codex Accounts
 
-[![npm](https://img.shields.io/npm/v/@narumitw/pi-usage)](https://www.npmjs.com/package/@narumitw/pi-usage) [![Pi extension](https://img.shields.io/badge/Pi-extension-blue)](https://pi.dev) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![Upstream npm](https://img.shields.io/npm/v/@narumitw/pi-usage)](https://www.npmjs.com/package/@narumitw/pi-usage) [![Pi extension](https://img.shields.io/badge/Pi-extension-blue)](https://pi.dev) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
-Inspect usage and DeepSeek API balance for Pi's active provider account, query other configured providers, and toggle Fast mode for supported OpenAI Codex models.
+This fork adds account-bound `/usage` reporting for selected `openai-codex-account-N` slots, including credit balances when included quota is exhausted. It is maintained inside the `datalater/pi-extensions` monorepo; the upstream npm package does not include these changes.
+
+Reporting does not authorize credit spending or control failover. Those decisions belong to the separate [pi-multi-account fork](https://github.com/datalater/pi-multi-account).
+
+The original package inspects usage and DeepSeek API balance for Pi's active provider account, queries other configured providers, and toggles Fast mode for supported OpenAI Codex models.
 The extension keeps each provider's native quota, allowance, and spending semantics instead of treating unlike values as equivalent.
 Native `openai` ChatGPT OAuth automatically reports plan usage through a valid same-account Codex companion login; without that login it shows authentication status and a usage-settings link.
 xAI OAuth subscription reporting follows the reviewed Grok Build contract and runs only after an explicit `/usage` action.
 
 ## ✨ Features
 
+- **Fork addition:** reports the selected numbered Codex slot without falling back to the base account's credentials.
 - Shows active-account usage and next actions through `/usage`.
 - Recognizes native `/login openai` ChatGPT OAuth separately from unsupported OpenAI API-key usage reporting.
 - Reports subscription allowances, API balances, and spending for the supported providers listed below without mixing their billing semantics.
@@ -28,28 +33,27 @@ The v1 credential-source path is characterized against Pi 0.84.3; other runtimes
 Like every Pi extension, this package runs with Pi's process permissions.
 Review [Security and privacy](#-security-and-privacy) before installation.
 
-```bash
-pi install npm:@narumitw/pi-usage
-```
-
-Try without installing permanently:
+Clone the `datalater/codex-slots` branch and install its dependencies with the pinned Node/npm toolchain as described in the [fork installation guide](https://github.com/datalater/pi-extensions#-install-this-fork). From that checkout's root:
 
 ```bash
-pi -e npm:@narumitw/pi-usage
-```
-
-Build and try this package locally from the repository root:
-
-```bash
+npm --workspace @narumitw/pi-tui-kit run build
 npm --workspace @narumitw/pi-usage run build
-pi -e ./packages/pi-usage
+pi install "$PWD/packages/pi-usage"
 ```
 
-The package declares `dist/index.ts`, so an unbuilt local checkout must run the build before Pi loads the package directory.
+Replace any existing `npm:@narumitw/pi-usage` declaration in Pi settings instead of enabling both copies. Do not install the monorepo root. To try only the built package without saving it:
+
+```bash
+pi --no-extensions -e ./packages/pi-usage
+```
+
+The package declares `dist/index.ts`, so an unbuilt checkout must be built before loading. Fully quit and relaunch/resume Pi to adopt changed code. Local installations are maintained through this checkout, not by updating the upstream npm package.
 
 ## 🚀 Quick start
 
-Run `/usage` in TUI or RPC mode to inspect the active provider, refresh its usage, or choose another configured provider.
+For the fork's numbered-account path, select an `openai-codex-account-N` model first, then run `/usage` in TUI or RPC mode. Confirm the report names that slot and shows its quota and credits. Fast/reset actions are not enabled for numbered slots by this integration.
+
+For other providers, run `/usage` to inspect the active provider, refresh its usage, or choose another configured provider.
 When a provider exposes several billing targets, `/usage` asks for one target before querying usage.
 Run `/fast` to toggle Fast mode for a supported active Codex model.
 For native `/login openai`, select an `openai` model and run `/usage`. A same-account/workspace `/login openai-codex` supplies [companion usage](#chatgpt-companion-usage) automatically without changing native inference.
@@ -252,7 +256,8 @@ To migrate one installation:
 
 ```bash
 pi remove npm:@narumitw/pi-codex-usage
-pi install npm:@narumitw/pi-usage
+# From this fork's built checkout:
+pi install "$PWD/packages/pi-usage"
 ```
 
 Remove the deprecated package rather than loading both usage extensions together.
@@ -299,7 +304,7 @@ An absent or incompatible peer preserves standalone fallback and fail-closed mis
 - GitHub Copilot quota, Kimi managed usage, Z.AI quota, and OpenAI Codex reset redemption rely on provider-owned endpoints that may change without notice.
 - Codex reset redemption requires a current ChatGPT OAuth credential from Pi's login or a compatible credential source; Codex API keys cannot redeem earned subscription resets.
 - xAI usage supports only a uniquely matched Pi OAuth subscription credential; xAI API keys and Management API credentials are unsupported.
-- Credentials resolved for custom provider base URLs are never forwarded to the providers' official usage endpoints; effective auth origin validation requires Pi 0.81.0 or newer.
+- Arbitrary custom provider origins remain unsupported. The numbered-slot compatibility path is a narrow exception: an exact loopback slot route and recognized placeholder are resolved to that slot's verified OAuth identity. Effective auth origin validation requires Pi 0.81.0 or newer.
 - Provider reports are snapshots and may themselves be delayed by the provider.
 - DeepSeek reports current API balance only; it does not expose historical usage, quota windows, reset times, or account-wide token totals through the balance endpoint.
 - Fireworks reports rated 30-day spend only; credit balance and spend caps are visible only in the Fireworks web console, and `/usage` must select one visible account before querying a multi-account key.

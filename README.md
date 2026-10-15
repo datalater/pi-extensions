@@ -1,286 +1,98 @@
-# 🧩 Pi Extensions for the Pi Coding Agent
+# 📊 Pi Extensions — Datalater's pi-usage Fork
 
-[![npm scope](https://img.shields.io/badge/npm-@narumitw-blue)](https://www.npmjs.com/org/narumitw) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![Pi extension](https://img.shields.io/badge/Pi-extension-blue)](https://pi.dev) [![Upstream npm scope](https://img.shields.io/badge/upstream_npm-@narumitw-blue)](https://www.npmjs.com/org/narumitw) [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
-Independently installable [Pi Coding Agent](https://pi.dev) extensions and reusable extension
-libraries for coding, research, browser automation, workflow management, observability, and terminal
-ergonomics.
+This is a personal fork of [narumiruna/pi-extensions](https://github.com/narumiruna/pi-extensions), maintained for **`pi-usage` support for numbered Codex accounts**. It lets `/usage` show the selected account's included allowance and credit balance without falling back to another account's credentials.
 
-Install only what you need.
-Published packages use the `@narumitw` npm scope, and package READMEs identify source-only exceptions.
-
-## 🚀 Quick start
-
-Install an extension permanently:
-
-```bash
-pi install npm:@narumitw/pi-goal
-```
-
-Try one without adding it permanently:
-
-```bash
-pi -e npm:@narumitw/pi-statusline
-```
-
-Combine multiple extensions:
-
-```bash
-pi -e npm:@narumitw/pi-goal \
-  -e npm:@narumitw/pi-statusline \
-  -e npm:@narumitw/pi-lsp
-```
+**Why is the repository called `pi-extensions`?** `pi-usage` lives at [`packages/pi-usage`](./packages/pi-usage) inside the upstream monorepo. This fork keeps that layout, shared build tooling, and history so upstream changes can be merged. Other packages remain available as upstream source, but they are not the focus of this fork.
 
 > [!IMPORTANT]
-> Pi extensions run with your full user permissions. Review an extension before installing it from any third party.
+> Install **`packages/pi-usage`**, not the repository root. The root Pi manifest enables many unrelated extensions.
+> The upstream npm package `@narumitw/pi-usage` does **not** contain this fork's changes.
 
-## ⭐ Extensions I use every day
+## ✨ What this fork changes
 
-These extensions are part of my daily Pi setup:
+- Recognizes the selected `openai-codex-account-N` as its own account, rather than reporting it as unsupported.
+- Shows included quota and credits together, including when included quota has reached zero.
+- Reads only the selected slot's credentials and validates them against the runtime account and endpoint.
+- Refuses missing, expired, or mismatched credentials instead of displaying another account's balance.
+- Builds the runtime from source; there are no hand-edited generated chunks or machine-specific test imports.
 
-| Extension | Why I use it |
-| --- | --- |
-| [`pi-btw`](./packages/pi-btw) | Ask a quick side question without polluting the main context. |
-| [`pi-accounts`](./packages/pi-accounts) | Switch between named subscription OAuth accounts. |
-| [`pi-caffeinate`](./packages/pi-caffeinate) | Keep my machine awake so Pi can keep working. |
-| [`pi-codex-compact`](./packages/pi-codex-compact) | Spend a little more for better compaction quality. |
-| [`pi-stamp`](./packages/pi-stamp) | See useful details for each response, such as its timestamp. |
-| [`pi-starship`](./packages/pi-starship) | Match Pi's footer to my Starship shell setup. |
-| [`pi-sync`](./packages/pi-sync) | Sync my Pi configuration across all my devices through S3. |
-| [`pi-usage`](./packages/pi-usage) | Check my Codex usage and limit reset times without opening Codex. |
+This extension **reports usage**. It does not decide whether inference may spend credits or which account handles a request. The separate [datalater/pi-multi-account](https://github.com/datalater/pi-multi-account) fork owns the opt-in `allowCodexCredits` policy and failover behavior.
 
-## 📦 Choose an extension
+## 📦 Install this fork
 
-### Coding and delegation
-
-| Package | Use it for | Install |
-| --- | --- | --- |
-| [`pi-codex-compact`](./packages/pi-codex-compact) | Use OpenAI Codex Remote Compaction V2 to persist and replay bounded opaque checkpoints, with `/codex-compact` manual controls and safe Pi-native fallback. | `pi install npm:@narumitw/pi-codex-compact` |
-| [`pi-context-management`](./packages/pi-context-management) | Opt into experimental summary-free context rollover with bounded branch-history recall and branch-local notes. | `pi install npm:@narumitw/pi-context-management` |
-| [`pi-file-context`](./packages/pi-file-context) | Browse project files, preview text, select exact lines or Git diff hunks, and attach immutable snapshots with Git provenance to the next prompt. Open it with configurable `Ctrl+Shift+X` or `/file-context`. | `pi install npm:@narumitw/pi-file-context` |
-| [`pi-lsp`](./packages/pi-lsp) | Language-server diagnostics and code actions across JavaScript, TypeScript, Python, Rust, Go, Ruby, C/C++, JVM, .NET, Swift, shell, infrastructure formats, and more. | `pi install npm:@narumitw/pi-lsp` |
-| [`pi-plan-mode`](./packages/pi-plan-mode) | Codex-like, read-only `/plan` collaboration before implementation begins. | `pi install npm:@narumitw/pi-plan-mode` |
-| [`pi-subagents`](./packages/pi-subagents) | Start bounded background Pi jobs with authenticated main-agent messaging. | [Install from source](./packages/pi-subagents#-install) |
-
-### TypeSafe AI
-
-These TypeSafe AI integrations are experimental and may change as they are evaluated in real workflows.
-
-| Package | Use it for | Install |
-| --- | --- | --- |
-| [`pi-typesafe`](./packages/pi-typesafe) | Make typed Jev decisions with validated probabilities for yes-or-no, fixed-choice, and ordered-score questions. | `pi install npm:@narumitw/pi-typesafe` |
-| [`pi-typesafe-compact`](./packages/pi-typesafe-compact) | Use Jev to select older history before summarizing it with Pi's native compaction flow and active model. | `pi install npm:@narumitw/pi-typesafe-compact` |
-| [`pi-typesafe-search`](./packages/pi-typesafe-search) | Search workspace files with SQLite FTS5 and Jev semantic reranking, without embeddings or a vector database. | `pi install npm:@narumitw/pi-typesafe-search` |
-
-### Task and workspace workflows
-
-| Package | Use it for | Install |
-| --- | --- | --- |
-| [`pi-btw`](./packages/pi-btw) | Ask a quick `/btw` side question without adding it to the main conversation. | `pi install npm:@narumitw/pi-btw` |
-| [`pi-caffeinate`](./packages/pi-caffeinate) | Prevent system sleep while Pi processes a long-running prompt. | `pi install npm:@narumitw/pi-caffeinate` |
-| [`pi-goal`](./packages/pi-goal) | Keep the agent working until a goal is verified complete; optionally enable an experimental ordered queue. | `pi install npm:@narumitw/pi-goal` |
-| [`pi-notes`](./packages/pi-notes) | Browse and edit global Markdown notes in an isolated embedded-agent workspace. | `pi install npm:@narumitw/pi-notes` |
-| [`pi-progress`](./packages/pi-progress) | Keep branch-aware multi-step work visible above the editor with the `update_progress` model tool. | `pi install npm:@narumitw/pi-progress` |
-| [`pi-worktree`](./packages/pi-worktree) | Create, switch, remove, and prune Git worktrees while carrying the Pi session into another workspace. | `pi install npm:@narumitw/pi-worktree` |
-
-Current Plan and Goal releases can coexist on the characterized Pi runtime through their anonymous cooperative workflow mutex.
-The deprecated combined `pi-workflow` package has no atomic Plan-to-Goal replacement; follow its [archived migration instructions](./deprecated/pi-workflow/README.md#-migration-from-pi-workflow).
-
-### Local collaboration
-
-| Package | Use it for | Install |
-| --- | --- | --- |
-| [`pi-chat`](./packages/pi-chat) | Join ephemeral peer-to-peer chat rooms that stay separate from Pi sessions, prompts, and model context. | `pi install npm:@narumitw/pi-chat` |
-| [`pi-fleet`](./packages/pi-fleet) | Start a separate Pi process in a terminal split and connect explicit local Pi sessions for bounded messages and one-turn requests. | `pi install npm:@narumitw/pi-fleet` |
-| [`pi-herdr`](./packages/pi-herdr) | Report Pi lifecycle state to Herdr and bundle safe Herdr terminal-orchestration guidance. | `pi install npm:@narumitw/pi-herdr` |
-
-### Accounts and data
-
-| Package | Use it for | Install |
-| --- | --- | --- |
-| [`pi-accounts`](./packages/pi-accounts) | Switch named OpenAI Codex, Anthropic, GitHub Copilot, Kimi For Coding, OpenRouter, Radius, and xAI OAuth accounts with `/accounts`. | `pi install npm:@narumitw/pi-accounts` |
-| [`pi-dotenv`](./packages/pi-dotenv) | Load one explicit dotenv file early enough for provider credential discovery during normal Pi startup. | `pi install npm:@narumitw/pi-dotenv` |
-| [`pi-recall`](./packages/pi-recall) | Save selected text messages locally and preview or quote them across Pi sessions. | `pi install npm:@narumitw/pi-recall` |
-| [`pi-usage`](./packages/pi-usage) | View current-account Codex subscription limits or OpenRouter API-key spend limits with `/usage`. | `pi install npm:@narumitw/pi-usage` |
-| [`pi-sync`](./packages/pi-sync) | Sync allowlisted Pi settings and optional sessions through Cloudflare R2 or S3-compatible storage. | `pi install npm:@narumitw/pi-sync` |
-
-### Status and observability
-
-| Package | Use it for | Install |
-| --- | --- | --- |
-| [`pi-analytics`](./packages/pi-analytics) | Review private, content-free local metrics for model calls, skills, tools, response cycles, and observed provider reliability through `/analytics`. | `pi install npm:@narumitw/pi-analytics` |
-| [`pi-cache-hit-monitor`](./packages/pi-cache-hit-monitor) | Show live prompt-cache reuse, token, and estimated cost diagnostics above the editor. | `pi install npm:@narumitw/pi-cache-hit-monitor` |
-| [`pi-github-pr`](./packages/pi-github-pr) | Show current-branch pull request checks, reviews, and comment counts through the authenticated `gh` CLI. | `pi install npm:@narumitw/pi-github-pr` |
-| [`pi-inspect`](./packages/pi-inspect) | Inspect current session context and live tool calls in a private, read-only browser viewer with `/inspect`. | `pi install ./packages/pi-inspect` |
-| [`pi-langfuse`](./packages/pi-langfuse) | Send agent runs, generations, token usage, costs, and tool activity to Langfuse. | `pi install npm:@narumitw/pi-langfuse` |
-| [`pi-stamp`](./packages/pi-stamp) | Show configurable timestamps with opt-in assistant metadata, response timing, and tool timing in the TUI transcript. | `pi install npm:@narumitw/pi-stamp` |
-| [`pi-starship`](./packages/pi-starship) | Use a native Starship-style TOML footer with Pi-specific modules and no Starship binary dependency. | `pi install npm:@narumitw/pi-starship` |
-| [`pi-statusline`](./packages/pi-statusline) | Show model, tools, Git state, context usage, tokens, cost, and time in a preset or JSON-configured footer. | `pi install npm:@narumitw/pi-statusline` |
-| [`pi-tool`](./packages/pi-tool) | Browse every configured tool and inspect its active state, source, parameter schema, and prompt guidelines with `/tool`. | `pi install npm:@narumitw/pi-tool` |
-| [`pi-ticker`](./packages/pi-ticker) | Show configurable Yahoo Finance market quotes in a width-aware widget above the editor. | `pi install npm:@narumitw/pi-ticker` |
-
-Choose either `pi-starship` or `pi-statusline`; do not enable both footer extensions together.
-
-## 🧱 Extension libraries
-
-| Package | Use it for | Install |
-| --- | --- | --- |
-| [`pi-tui-kit`](./packages/pi-tui-kit) | Extend `@earendil-works/pi-tui` with reusable navigation helpers and declarative action, detail, settings, and multi-select flows. | `npm install @narumitw/pi-tui-kit` |
-
-Libraries are runtime dependencies for extension authors, not standalone Pi extensions. New standard
-manager menus should use `@narumitw/pi-tui-kit`; extensions continue to own domain state,
-commands, settings persistence, confirmations, and specialized UI.
-
-## 🔧 Advanced installation
-
-<details>
-<summary>Install this repository directly from GitHub</summary>
-
-Install the repository as one Pi package:
+Use the maintained branch, `datalater/codex-slots`:
 
 ```bash
-pi install git:github.com/narumiruna/pi-extensions
+git clone --branch datalater/codex-slots https://github.com/datalater/pi-extensions.git
+cd pi-extensions
 ```
 
-The repository root Pi manifest explicitly lists every extension under `packages/`, so this enables all of them. Its install prepare step builds Inspector browser assets even when Pi omits development dependencies.
-
-To load only selected extensions, replace the installed package entry in `~/.pi/agent/settings.json` with a resource filter:
-
-```json
-{
-  "packages": [
-    {
-      "source": "git:github.com/narumiruna/pi-extensions",
-      "extensions": [
-        "packages/pi-accounts/src/index.ts",
-        "packages/pi-usage/src/index.ts"
-      ]
-    }
-  ]
-}
-```
-
-Filters use resource paths relative to the repository root. A package directory such as `packages/pi-accounts` is not enough; select its `src/index.ts` entrypoint.
-
-Restart Pi or run `/reload` after changing the filter. Update the checkout later with:
-
-```bash
-pi update --extensions
-```
-
-</details>
-
-## 🧑‍💻 Local development
-
-Use Node.js from [`.node-version`](./.node-version) with its bundled npm, then run from the repository root:
+Use the Node.js version in [`.node-version`](./.node-version) and the npm version pinned in [`scripts/check-install-policy.mjs`](./scripts/check-install-policy.mjs), then run from the repository root:
 
 ```bash
 node scripts/check-install-policy.mjs
-npm install
-npm test
+npm ci
+npm --workspace @narumitw/pi-tui-kit run build
+npm --workspace @narumitw/pi-usage run build
+pi install "$PWD/packages/pi-usage"
+```
+
+If Pi already lists `npm:@narumitw/pi-usage` in `settings.json`, **replace that declaration** with the built local package path instead of loading both copies. Confirm the selected source with `pi list`.
+
+To try the built package without saving an installation:
+
+```bash
+pi --no-extensions -e ./packages/pi-usage
+```
+
+Fully quit and relaunch/resume Pi after switching loaded code. Local checkouts are not replaced by npm when running `pi update --extensions`; you maintain and build this checkout yourself. Extensions run with your user permissions, so review the source before installing.
+
+## 🚀 Quick start
+
+1. Authenticate and select a numbered Codex account through your account manager.
+2. Run `/usage` in Pi's TUI or RPC mode.
+3. Confirm that the report names the selected numbered account and displays its quota and credits.
+
+The configured-provider picker is unchanged: select the numbered model first, then query its usage. `/usage` reports a snapshot, not a guarantee that the next inference request will succeed or that a recent charge has already been reflected.
+
+See the [pi-usage README](./packages/pi-usage/README.md) for all commands, supported providers, settings, and security details. Existing upstream Fast/reset features do not become enabled for numbered slots through this compatibility layer.
+
+## 🔒 Compatibility and safety
+
+Numbered-slot reporting intentionally depends on pi-multi-account's private OAuth sidecar and proxy-placeholder format. This is a **fork-specific exception**, not an upstream extension-neutral protocol. It needs revalidation when either extension changes its account storage or proxy routing.
+
+The slot adapter only queries the official Codex usage endpoint, checks account identity around the request, and refuses redirects. It does not refresh or write credentials, purchase credits, redeem resets, or modify billing settings. Never commit real auth files, usage logs, or account balances to this repository.
+
+## 🛠️ Maintain and verify
+
+```bash
 npm run check
+npm test
+npm run package:pack -- usage
 ```
 
-`npm test` typechecks the test sources and runs the root and workspace suites with Vitest.
-CI and release use `npm ci` with strict dependency script review and a seven-day minimum age for new resolution.
-See [dependency installation policy](./docs/dependency-installation.md) for script approvals, lockfile-age limitations,
-failed-update recovery, urgent-patch review, and toolchain upgrades.
+These are the repository's existing build, typecheck, lint, test, and packaging workflows. Use the pinned toolchain for the full suite; an older npm does not implement the installation-policy features tested here.
 
-Build generated entries before loading local packages, and use the generic npm pack workflow with an unscoped package name:
+For upstream updates, work on a clean upgrade branch, merge a reviewed upstream revision, rebuild, and run the checks before advancing `datalater/codex-slots`. Do not force-sync over the fork commits. Keep the last working commit available for rollback.
 
-```bash
-npm --workspace @narumitw/pi-goal run build --if-present
-pi -e ./packages/pi-goal
-npm run package:pack -- goal
+[FORK.md](./FORK.md) contains the detailed update/rollback procedure and migration verification evidence. Package names and versions remain upstream-compatible; use `git rev-parse HEAD` to identify the fork revision. This fork is not published under a new npm scope, and upstream release workflows must not be used to publish it without separate approval.
 
-# Another build-backed package uses the same local flow and pack workflow
-npm --workspace @narumitw/pi-file-context run build --if-present
-pi -e ./packages/pi-file-context
-npm run package:pack -- file-context
-
-# Libraries use the same generic pack workflow
-npm run package:pack -- tui-kit
-```
-
-Run `npm run` to see all development, install, pack, and release workflows.
-Pull requests that change published package behavior should add release intent with `npm run changeset`.
-Packages version independently.
-
-<details>
-<summary>Publishing a new scoped package</summary>
-
-`npm run package:public -- @narumitw/pi-new-extension` only changes visibility for an existing npm package.
-If npm returns 404 for a brand-new package, publish it once with public access:
-
-```bash
-npm publish --workspace @narumitw/pi-new-extension --access public
-```
-
-After the initial publication, Changesets handles extensions and libraries through independent package versions.
-
-</details>
-
-## 🦋 Releases
-
-A behavior-changing package pull request records its affected packages and SemVer bumps with:
-
-```bash
-npm run changeset
-```
-
-After changesets reach `main`, the release workflow creates or updates one version pull request. That
-pull request changes only selected package versions, dependency ranges where configured, changelogs,
-and the lockfile. Merging it publishes the new versions with npm provenance and creates
-package-specific tags and GitHub releases such as `@narumitw/pi-goal@0.50.0`.
-
-Repository-only documentation, tests, tooling, and path migrations may omit a changeset. Use
-`npm run changeset:status` to inspect pending releases. Versioning and publication run through the
-release workflow; initial publication remains the manually approved exception described above.
-
-`@narumitw/pi-tui-kit` remains independently versioned. Publish a new Kit API before raising an
-extension's compatibility floor to consume it; do not release an unpublished Kit API and its first
-consumer together.
-
-## 🗂️ Repository structure
+## 🗂️ Repository layout
 
 ```text
-packages/                Extension packages and reusable libraries
-deprecated/              Reference packages excluded from active workspace scripts
-docs/                    Repository conventions and plans
-scripts/                 Shared checks, tests, versioning, and release helpers
-test/                    Root integration and repository tests
+packages/pi-usage/       Maintained usage-reporting changes and regression tests
+packages/pi-tui-kit/     Shared UI library needed by the local package build
+packages/               Other upstream packages retained for history/tooling
+scripts/                Shared build, checks, tests, and packaging workflows
+test/                   Repository integration tests
+docs/                   Upstream conventions and dependency policy
+FORK.md                 Fork maintenance and verification notes
 ```
 
-Each active package contains its own `package.json`, `README.md`, `LICENSE`, `tsconfig.json`, and TypeScript source under `src/`.
-Every extension keeps a thin `src/index.ts` source forwarder and declares one package entrypoint.
-An extension package may load that source entrypoint directly or publish a build-backed `dist/index.ts` bundle for Pi's Jiti runtime.
-Reusable libraries publish built ESM and declarations from `dist/`.
+For unrelated extensions and their upstream installation instructions, see the [upstream package catalog](https://github.com/narumiruna/pi-extensions#-choose-an-extension).
 
-<details>
-<summary>Deprecated packages</summary>
+## 📄 License and attribution
 
-The following packages remain available as source references but are excluded from active workspace scripts:
-
-- `pi-biome-lsp` and `pi-python-lsp` — replaced by [`pi-lsp`](./packages/pi-lsp)
-- `pi-codex-accounts` — replaced by [`pi-accounts`](./packages/pi-accounts)
-- `pi-codex-usage` — replaced by [`pi-usage`](./packages/pi-usage)
-- [`pi-cbmem`](./deprecated/pi-cbmem) — deprecated without a replacement because a simple benchmark found insufficient benefit and substantially higher token usage
-- [`pi-chrome-devtools`](./deprecated/pi-chrome-devtools) — replaced by Chrome DevTools MCP through Pi's native MCP support; review the [migration instructions and compatibility differences](./deprecated/pi-chrome-devtools/README.md#-migration-to-native-mcp)
-- [`pi-firecrawl`](./deprecated/pi-firecrawl) — replaced by Firecrawl MCP through Pi's native MCP support; follow the [migration instructions](./deprecated/pi-firecrawl/README.md#-migration-to-native-mcp)
-- `pi-retry` — replaced by Pi's built-in provider retry and timeout behavior
-- `pi-google-genai` — replaced by the `grounding-with-google-genai` agent skill
-- `pi-image-drop` — deprecated without a replacement
-- [`pi-workflow`](./deprecated/pi-workflow) — replaced by focused Plan and Goal products; atomic Plan-to-Goal handoff has [no replacement](./deprecated/pi-workflow/README.md#-migration-from-pi-workflow)
-- `pi-jupyter` — deprecated without a replacement
-- `pi-webui` — deprecated without a replacement
-- `pi-auto-thinking`
-- `pi-sidebar`
-- `pi-telegram-bot`
-- `pi-telegraph`
-- `pi-wait-what`
-
-</details>
-
-## 📄 License
-
-MIT. See [`LICENSE`](./LICENSE).
+MIT. See [LICENSE](./LICENSE) and the [package license](./packages/pi-usage/LICENSE). Original extensions and tooling are maintained by [narumiruna and upstream contributors](https://github.com/narumiruna/pi-extensions); this fork maintains the numbered-Codex usage integration.
