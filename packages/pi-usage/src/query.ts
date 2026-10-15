@@ -1,7 +1,8 @@
 // This module intentionally keeps adapter transport beside resolved-auth and origin validation;
 // separating that security boundary would duplicate request and redaction policy across providers.
 import { randomBytes } from "node:crypto";
-import { type ExtensionContext, readStoredCredential } from "@earendil-works/pi-coding-agent";
+import { type ExtensionContext, getAgentDir, readStoredCredential } from "@earendil-works/pi-coding-agent";
+import { isCodexSlot, resolveCodexSlotAuth } from "./codex-slot-auth.js";
 import { abortError, errorMessage, fingerprintResolvedAuth, redactUsageError } from "./core.js";
 import { fallbackOAuthCredentialCandidates, type OAuthCredentialCandidateReader } from "./oauth-credential-source.js";
 import { normalizeBasetenBillingUsagePayload } from "./providers/baseten.js";
@@ -393,6 +394,32 @@ export function usageAdapters(): readonly UsageProviderAdapter[] {
 }
 
 export function adapterForProvider(providerId: string | undefined): UsageProviderAdapter | undefined {
+  if (isCodexSlot(providerId)) {
+    return {
+      id: providerId,
+      displayName: `Codex (${providerId})`,
+      semantics: { kind: "consumer-subscription", label: "ChatGPT subscription limits" },
+      invalidateCacheOnFailure: true,
+      requiresRequestBoundaryGuard: true,
+      async query(auth, signal, timeoutMs, guard) {
+        if (!guard) throw new Error("Codex slot usage requires account revalidation.");
+        await guard();
+        const payload = await fetchProviderJson(CODEX_USAGE_URL, auth, signal, timeoutMs, "Codex slot usage endpoint", {
+          redirect: "error",
+        });
+        await guard();
+        if (payload.account_id !== auth.headers["ChatGPT-Account-Id"]) {
+          throw new Error("Codex usage response belongs to a different account.");
+        }
+        // Keep the Codex report format; state/cache identity remains the numbered adapter ID.
+        return {
+          ...normalizeCodexBackendPayload(payload as CodexBackendPayload, Date.now()),
+          providerName: `Codex (${providerId})`,
+          accountLabel: providerId,
+        };
+      },
+    };
+  }
   return usageAdapters().find((adapter) => adapter.id === providerId);
 }
 
@@ -411,6 +438,7 @@ export async function resolveUsageAuth(
   /** @deprecated Companion resolution is automatic; this argument is ignored. */
   _openaiCompanionUsage?: boolean,
 ): Promise<ResolvedUsageAuth | undefined> {
+  if (isCodexSlot(adapter.id)) return resolveCodexSlotAuth(ctx, adapter.id, salt, getAgentDir());
   if (ctx.model?.provider === adapter.id && !hasOfficialOrigin(ctx.model, adapter.id)) {
     throw new Error(
       `${adapter.displayName} usage cannot send a custom provider base URL credential to the official usage endpoint.`,

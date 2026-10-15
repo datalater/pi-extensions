@@ -20,6 +20,8 @@ xAI OAuth subscription reporting follows the reviewed Grok Build contract and ru
 
 ## 📦 Install
 
+For this personal fork's checkout/build/update workflow, see [FORK.md](https://github.com/datalater/pi-extensions/blob/datalater/codex-slots/FORK.md). Load only this package, not the entire monorepo.
+
 Requires Pi 0.81.0 or newer to validate the effective base URL for resolved provider auth before sending credentials to an official usage endpoint.
 The v1 credential-source path is characterized against Pi 0.84.3; other runtimes keep the standalone fallback without its protocol timing guarantee.
 
@@ -263,6 +265,12 @@ Behavior changes:
 - The status key changes from `codex-usage` to `usage`.
 
 ## 🔒 Security and privacy
+
+### Numbered Codex slots (fork compatibility)
+
+This fork supports the selected `openai-codex-account-N` separately from the base account. It reads the exact slot from `pi-multi-account-proxy-oauth.json`, falling back only to that same slot in Pi's auth store when the sidecar entry is absent. Runtime credentials must match the stored OAuth account, or the known non-secret placeholder on that exact loopback slot route. Missing, expired, or mismatched credentials fail without switching to another account.
+
+This is an intentional **fork-only exception** to the upstream extension-neutral integration rule: it depends on pi-multi-account's private sidecar and placeholder format. Recheck compatibility when updating either fork. The integration never refreshes or writes credentials, never enables credit purchases or reset redemption, and sends usage queries only to the official Codex endpoint with account revalidation and redirects disabled. The configured-provider picker remains upstream-only; select the numbered model before running `/usage`.
 
 Credential candidates are collected synchronously in memory after any compatible readiness promises settle, and are not cached, persisted, logged, formatted, or appended to the Pi session.
 The protocols carry no account name or extension identity.

@@ -286,6 +286,7 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
       };
     }
     const requiresRequestBoundaryGuard =
+      adapter.requiresRequestBoundaryGuard === true ||
       adapter.targets !== undefined ||
       [
         "baseten",
