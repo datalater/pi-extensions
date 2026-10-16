@@ -38,7 +38,7 @@ async function emit(mock: ReturnType<typeof createMockPi>, event: string, ctx: u
   for (const handler of mock.events.get(event) ?? []) await handler({}, ctx);
 }
 
-function runCommand(mock: ReturnType<typeof createMockPi>, name: "usage" | "fast", ctx: unknown) {
+function runCommand(mock: ReturnType<typeof createMockPi>, name: "usage" | "codex-fast", ctx: unknown) {
   const command = mock.commands.get(name);
   assert.ok(command);
   return command.handler("", ctx);
@@ -179,7 +179,7 @@ test("real Pi configured model headers override native OAuth and cannot imply pl
   }
 });
 
-test("native /fast, provider payloads, pricing, and reset auth stay outside legacy Codex features", async () => {
+test("native /codex-fast, provider payloads, pricing, and reset auth stay outside legacy Codex features", async () => {
   const { registry } = await createRegistry();
   const model = registry.find("openai", "gpt-6.1-sol");
   assert.ok(model);
@@ -187,7 +187,7 @@ test("native /fast, provider payloads, pricing, and reset auth stay outside lega
   usageExtension(mock.pi, { credentialReader: () => credential });
   const context = createMockContext({ mode: "rpc", model, modelRegistry: registry });
   try {
-    await runCommand(mock, "fast", context.ctx);
+    await runCommand(mock, "codex-fast", context.ctx);
     assert.match(context.notifications[0]?.message ?? "", /only.*OpenAI Codex/);
     assert.deepEqual(codexFastAvailability(model, true), { kind: "not-codex" });
     const payload = { service_tier: "priority", input: "unchanged" };

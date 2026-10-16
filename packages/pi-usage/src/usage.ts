@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { isOfficialCodexModel } from "./codex-fast.js";
-import { FAST_USAGE_WARNING, registerCodexFastMode } from "./codex-fast-runtime.js";
+import { registerCodexFastMode } from "./codex-fast-runtime.js";
 import {
   type CodexResetAvailability,
   type CodexResetOption,
@@ -38,6 +38,7 @@ import type {
   UsageDisplayState,
   UsageProviderAdapter,
 } from "./types.js";
+import { emphasizeCodexStatus, withUsageEmphasis } from "./usage-emphasis.js";
 import {
   configuredAdapters,
   isAbortError,
@@ -130,7 +131,7 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
     color?: ReturnType<typeof codexQuotaStatusColor>,
   ): boolean => {
     try {
-      ctx.ui.setStatus(STATUS_KEY, value && color ? ctx.ui.theme.fg(color, value) : value);
+      ctx.ui.setStatus(STATUS_KEY, emphasizeCodexStatus(ctx, value, color));
       return true;
     } catch (error) {
       if (isStaleExtensionContextError(error)) return false;
@@ -962,11 +963,18 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
         screens: {
           main: () => {
             const fastAvailability = fastRuntime.availability(ctx.model);
+            const fastEnabled =
+              fastAvailability.kind === "available" ? fastAvailability.enabled : fastState.settings.codexFastMode;
+            const fastSettingsInvalid = !isCodexSlot(ctx.model?.provider) && fastState.kind === "invalid";
+            const fastWarning = fastRuntime.usageWarning(ctx.model);
             const targetState = actionableTargetState();
             const targetAdapter = adapterForProvider(targetState?.providerId);
             const fastLines =
               fastAvailability.kind === "available"
-                ? [`Fast mode: ${fastAvailability.enabled ? "On" : "Off"}`, FAST_USAGE_WARNING]
+                ? [
+                    `Fast ${isCodexSlot(ctx.model?.provider) ? "request" : "mode"}: ${fastAvailability.enabled ? "On" : "Off"}`,
+                    fastWarning,
+                  ]
                 : fastAvailability.kind === "unavailable"
                   ? [`Fast mode: Unavailable · ${fastAvailability.reason}`]
                   : fastAvailability.kind === "unknown"
@@ -993,12 +1001,11 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
                   ? [
                       {
                         id: "toggle-fast",
-                        label: fastState.settings.codexFastMode ? "Turn Fast mode off" : "Turn Fast mode on",
-                        description:
-                          fastState.kind === "invalid"
-                            ? "Repair pi-usage.json and reload before changing Fast mode."
-                            : FAST_USAGE_WARNING,
-                        disabled: fastState.kind === "invalid",
+                        label: fastEnabled ? "Turn Fast mode off" : "Turn Fast mode on",
+                        description: fastSettingsInvalid
+                          ? "Repair pi-usage.json and reload before changing Fast mode."
+                          : fastWarning,
+                        disabled: fastSettingsInvalid,
                         action: "toggle-fast" as const,
                       },
                     ]
@@ -1167,8 +1174,12 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
           },
           "toggle-fast": async () => {
             const availability = fastRuntime.availability(ctx.model);
-            const enabled = settingsRuntime.get().settings.codexFastMode;
-            if ((availability.kind !== "available" && !enabled) || fastState.kind === "invalid") {
+            const enabled =
+              availability.kind === "available" ? availability.enabled : settingsRuntime.get().settings.codexFastMode;
+            if (
+              (availability.kind !== "available" && !enabled) ||
+              (!isCodexSlot(ctx.model?.provider) && fastState.kind === "invalid")
+            ) {
               return { kind: "rejected" };
             }
             const changed = await fastRuntime.toggle(ctx, !enabled, controller.signal);
@@ -1433,7 +1444,7 @@ export default function usageExtension(pi: ExtensionAPI, dependencies: UsageExte
           },
         },
       });
-      await runMenu(ctx, menu, {
+      await runMenu(withUsageEmphasis(ctx), menu, {
         getState: () => undefined,
         signal: controller.signal,
         isCurrent: () => statusGeneration === menuGeneration && !controller.signal.aborted,

@@ -152,6 +152,72 @@ test("wrong-account usage responses are rejected", async () => {
     globalThis.fetch = original;
   }
 });
+test("numbered Fast uses the single colored usage status and the menu reflects its session preference", async () => {
+  store();
+  writeFileSync(
+    join(dir, "models.json"),
+    JSON.stringify({ providers: { [slot]: { baseUrl: `http://127.0.0.1:41977/${slot}`, apiKey: placeholder } } }),
+  );
+  const originalFetch = globalThis.fetch;
+  const mock = createMockPi();
+  usageExtension(mock.pi);
+  const seenOptions: string[][] = [];
+  const current = createMockContext({
+    hasUI: true,
+    mode: "rpc",
+    model: {
+      provider: slot,
+      id: "test-model",
+      name: "Test model",
+      api: "openai-codex-responses",
+      baseUrl: `http://127.0.0.1:41978/${slot}`,
+    },
+    theme: { fg: (role: string, text: string) => `<${role}>${text}</${role}>` },
+    sessionManager: {
+      getSessionId: () => "fast-menu-session",
+      getBranch: () => [
+        { type: "custom", customType: "codex-fast", data: { enabled: true } },
+        ...mock.entries.map((entry) => ({ type: "custom", ...entry })),
+      ],
+    },
+    modelRegistry: {
+      getApiKeyAndHeaders: async () => ({ ok: true, apiKey: placeholder }),
+      getAvailable: () => [],
+      getAll: () => [],
+    },
+    select: async (_title: string, options: string[]) => {
+      seenOptions.push(options);
+      return seenOptions.length === 1 ? "Turn Fast mode off" : undefined;
+    },
+  });
+  globalThis.fetch = async (url) => {
+    assert.equal(String(url), "https://chatgpt.com/backend-api/wham/usage");
+    return Response.json({
+      account_id: "account-3",
+      rate_limit: { primary_window: { used_percent: 100, limit_window_seconds: 604800 } },
+      credits: { has_credits: true, balance: "39570" },
+    });
+  };
+  try {
+    await mock.events.get("session_start")?.[0]?.({}, current.ctx);
+    await vi.waitFor(() => assert.equal(current.statuses.get("usage"), "<error>codex fast wk:0% 39.57k</error>"));
+    await mock.commands.get("usage")?.handler("", current.ctx);
+    assert.ok(seenOptions[0].includes("Turn Fast mode off"));
+    await vi.waitFor(() => assert.equal(current.statuses.get("usage"), "<error>codex wk:0% 39.57k</error>"));
+    await mock.commands.get("codex-fast")?.handler("", current.ctx);
+    await vi.waitFor(() => assert.equal(current.statuses.get("usage"), "<error>codex fast wk:0% 39.57k</error>"));
+    assert.deepEqual([...current.statuses.keys()], ["usage"]);
+    assert.deepEqual(
+      mock.entries.map((entry) => entry.data),
+      [{ enabled: false }, { enabled: true }],
+    );
+  } finally {
+    for (const handler of mock.events.get("session_shutdown") ?? []) await handler({}, current.ctx);
+    globalThis.fetch = originalFetch;
+    rmSync(join(dir, "models.json"), { force: true });
+  }
+});
+
 for (const change of ["none", "token", "route", "continuous"] as const) {
   test(`startup status settles without a prompt when slot changes: ${change}`, async () => {
     store();

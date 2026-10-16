@@ -145,7 +145,7 @@ async function fixture(t: TestContext, options: FixtureOptions = {}) {
       await rm(directory, { recursive: true, force: true });
     }
   });
-  const command = mock.commands.get("fast");
+  const command = mock.commands.get("codex-fast");
   const request = mock.events.get("before_provider_request")?.[0];
   const messageEnd = mock.events.get("message_end")?.[0];
   assert.ok(command);
@@ -289,10 +289,29 @@ test("model-directory responses larger than quota reports still enable advertise
   assert.equal(f.settings.get().settings.codexFastMode, true);
 });
 
-test("/fast rejects arguments and unsafe modes before filesystem or directory I/O", async (t) => {
+test("/codex-fast status is read-only and explicit on/off works for the base provider", async (t) => {
   const f = await fixture(t);
+  await f.command.handler("status", f.current.ctx);
+  assert.match(f.current.notifications.at(-1)?.message ?? "", /Scope: global base-Codex[\s\S]*Fast preference: Off/);
+  assert.equal(f.requests.length, 0);
+  assert.equal(f.writes, 0);
   await f.command.handler("on", f.current.ctx);
-  assert.match(f.current.notifications[0]?.message ?? "", /does not accept arguments/);
+  assert.equal(f.settings.get().settings.codexFastMode, true);
+  await f.command.handler("on", f.current.ctx);
+  assert.equal(f.settings.get().settings.codexFastMode, true, "on must not toggle an enabled preference off");
+  await f.command.handler("off", f.current.ctx);
+  assert.equal(f.settings.get().settings.codexFastMode, false);
+  const reads = f.requests.length;
+  const writes = f.writes;
+  await f.command.handler("status", f.current.ctx);
+  assert.equal(f.requests.length, reads);
+  assert.equal(f.writes, writes);
+});
+
+test("/codex-fast rejects unknown arguments and unsafe modes before filesystem or directory I/O", async (t) => {
+  const f = await fixture(t);
+  await f.command.handler("on extra", f.current.ctx);
+  assert.match(f.current.notifications[0]?.message ?? "", /Usage: \/codex-fast/);
   for (const mode of ["print", "json"]) {
     const current = f.context(codexModel, { hasUI: false, mode });
     await assert.rejects(Promise.resolve(f.command.handler("", current.ctx)), /requires TUI or RPC/);

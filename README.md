@@ -16,6 +16,8 @@ This is a personal fork of [narumiruna/pi-extensions](https://github.com/narumir
 - Shows included quota and credits together, including when included quota has reached zero.
 - Places compact credit balance immediately after the quota windows in one status item, e.g. `codex 5h:80% · wk:60% 43.29k`, without a separate label or status block.
 - Colors the Codex status using Pi's quota theme roles: error at zero remaining, warning below 20%, success otherwise. Color describes included quota, not credit availability.
+- Identifies the account with a minimal lowercase `codex a3` label in the existing quota-colored TUI usage row and emphasizes just account/credits in `/usage`, without replacing the built-in footer.
+- Owns numbered-account Fast toggles and detail status too: `/codex-fast` toggles priority intent, and `/codex-fast on|off|status` sets or inspects it explicitly, and the same usage item shows `codex fast …`.
 - Reads only the selected slot's credentials and validates them against the runtime account and endpoint.
 - Refuses missing, expired, or mismatched credentials instead of displaying another account's balance.
 - Builds the runtime from source; there are no hand-edited generated chunks or machine-specific test imports.
@@ -59,7 +61,7 @@ Fully quit and relaunch/resume Pi after switching loaded code. Local checkouts a
 
 The configured-provider picker is unchanged: select the numbered model first, then query its usage. `/usage` reports a snapshot, not a guarantee that the next inference request will succeed or that a recent charge has already been reflected.
 
-See the [pi-usage README](./packages/pi-usage/README.md) for all commands, supported providers, settings, and security details. Existing upstream Fast/reset features do not become enabled for numbered slots through this compatibility layer.
+See the [pi-usage README](./packages/pi-usage/README.md) for all commands, supported providers, settings, and security details. Numbered slots support explicit session Fast requests on verified proxy routes; `/codex-fast status` distinguishes requested priority from the observed server tier. Remove the old local `codex-fast.ts` helper to avoid duplicate commands/statuses. Reset redemption is not enabled for numbered slots.
 
 ## 🔒 Compatibility and safety
 

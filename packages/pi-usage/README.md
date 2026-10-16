@@ -4,7 +4,7 @@
 
 This fork adds account-bound `/usage` reporting for selected `openai-codex-account-N` slots, including credit balances when included quota is exhausted. It is maintained inside the `datalater/pi-extensions` monorepo; the upstream npm package does not include these changes.
 
-Reporting does not authorize credit spending or control failover. Those decisions belong to the separate [pi-multi-account fork](https://github.com/datalater/pi-multi-account).
+This fork also owns Fast request toggles and their inline status. Credit eligibility and account failover remain the responsibility of the separate [pi-multi-account fork](https://github.com/datalater/pi-multi-account).
 
 The original package inspects usage and DeepSeek API balance for Pi's active provider account, queries other configured providers, and toggles Fast mode for supported OpenAI Codex models.
 The extension keeps each provider's native quota, allowance, and spending semantics instead of treating unlike values as equivalent.
@@ -17,7 +17,8 @@ xAI OAuth subscription reporting follows the reviewed Grok Build contract and ru
 - Shows active-account usage and next actions through `/usage`.
 - Recognizes native `/login openai` ChatGPT OAuth separately from unsupported OpenAI API-key usage reporting.
 - Reports subscription allowances, API balances, and spending for the supported providers listed below without mixing their billing semantics.
-- Toggles persistent Codex Fast routing through `/fast` or the usage menu.
+- Toggles Codex Fast routing through `/codex-fast` or the usage menu: globally for the base provider, session-scoped for verified numbered routes.
+- Preserves `/codex-fast on|off|status` for numbered accounts and reports requested versus observed server tier without a second status item.
 - Redeems eligible Codex resets only after fresh account matching and explicit confirmation.
 - Refreshes one or all configured providers with bounded concurrency while preserving partial results.
 - Scopes statusline and cache data to the active provider and runtime account.
@@ -51,11 +52,11 @@ The package declares `dist/index.ts`, so an unbuilt checkout must be built befor
 
 ## 🚀 Quick start
 
-For the fork's numbered-account path, select an `openai-codex-account-N` model first, then run `/usage` in TUI or RPC mode. Confirm the report names that slot and shows its quota and credits. Fast/reset actions are not enabled for numbered slots by this integration.
+For the fork's numbered-account path, select an `openai-codex-account-N` model first, then run `/usage` in TUI or RPC mode. Confirm the report names that slot and shows its quota and credits. Use `/codex-fast` to toggle numbered-slot priority requests, or `/codex-fast status` for details. Reset redemption remains unavailable for numbered slots.
 
 For other providers, run `/usage` to inspect the active provider, refresh its usage, or choose another configured provider.
 When a provider exposes several billing targets, `/usage` asks for one target before querying usage.
-Run `/fast` to toggle Fast mode for a supported active Codex model.
+Run `/codex-fast` to toggle Fast mode for a supported active Codex model.
 For native `/login openai`, select an `openai` model and run `/usage`. A same-account/workspace `/login openai-codex` supplies [companion usage](#chatgpt-companion-usage) automatically without changing native inference.
 Native OpenAI Fast mode and earned reset redemption are not implemented; those actions remain specific to legacy `openai-codex`.
 
@@ -64,9 +65,13 @@ Native OpenAI Fast mode and earned reset redemption are not implemented; those a
 | Command | Purpose |
 | --- | --- |
 | `/usage` | Query the active provider's usage, then manage provider queries, preferences, or eligible Codex resets. |
-| `/fast` | Toggle Fast mode for the active supported Codex model. |
+| `/codex-fast` | Toggle Fast for the active base Codex model or verified numbered slot. |
+| `/codex-fast on` / `off` | Explicitly enable or disable the applicable preference without toggling it. |
+| `/codex-fast status` | Read-only details: global preference and cached capability for base Codex; session next-request setting and last observed server tier for numbered slots. |
 
-Both commands support TUI and RPC, accept no arguments, and reject print and JSON modes.
+These commands support TUI and RPC and reject print and JSON modes. `/usage` accepts no arguments. `/codex-fast` offers completion for `on`, `off`, and `status`; unknown or trailing arguments are rejected before changing state.
+
+**Command migration:** this fork no longer registers `/fast`. Use `/codex-fast` instead. The no-argument `/codex-fast` now **toggles**; use an explicit `status` for the old read-only behavior. Saved settings and session entries are unchanged.
 Cross-provider queries require an explicit interactive choice; there are no provider-ID, `--refresh`, or `--all` arguments.
 Requests use the matched provider credentials; see [Security and privacy](#-security-and-privacy).
 Fast mode uses more plan allowance; see [Codex Fast mode](#codex-fast-mode) for eligibility and when changes apply.
@@ -137,13 +142,13 @@ Removing the companion login restores web-only reporting without changing native
 
 ### Codex Fast mode
 
-Run `/fast` without arguments to toggle Fast for the active supported Codex model, or use **Turn Fast mode on/off** in `/usage`.
+Run `/codex-fast` without arguments to toggle Fast for the active supported Codex model, or use **Turn Fast mode on/off** in `/usage`.
 Fast is about 1.5× faster and uses more of your plan allowance.
-The `codexFastMode` preference defaults to Off.
+For the base `openai-codex` provider, the global `codexFastMode` preference defaults to Off.
 
 Fast applies to official `openai-codex-responses` requests at `https://chatgpt.com` when the current account's Codex model directory advertises a `priority` service tier or the legacy `fast` speed tier.
 Discovery validates the active OAuth account and caches its model capabilities for five minutes, with background refresh on session and model changes.
-`/fast` and `/usage` can refresh capability information before enabling Fast or displaying its controls, while provider request hooks use the account-validated cache and leave directory refresh in the background.
+`/codex-fast` and `/usage` can refresh capability information before enabling Fast or displaying its controls, while provider request hooks use the account-validated cache and leave directory refresh in the background.
 
 The `fast` label indicates requested priority routing, not a measured speedup; actual availability and speed depend on the service.
 It sends `service_tier: "priority"` while enabled and supported, and explicit `service_tier: "default"` otherwise.
@@ -155,6 +160,16 @@ Other providers, APIs, and custom or proxy origins retain their own request payl
 
 A toggle affects provider requests whose payload hook starts after the save; a request already sent is unchanged.
 Repair or remove an invalid file, then run `/reload` before trying the toggle again.
+
+### Numbered Codex Fast requests
+
+The fork migrates the old local `codex-fast.ts` helper into this package. Remove that helper from auto-loaded extensions; do not register both copies. `/codex-fast` and the `/usage` Fast action work on verified `openai-codex-account-N` loopback routes. Explicit `on`, `off`, and `status` remain available; the no-argument command now toggles instead of showing status.
+
+Numbered Fast is **session-scoped**, not controlled by the base-provider `codexFastMode` JSON preference. It restores existing `codex-fast` custom entries on resume and follows the current branch. An untouched/new session leaves `service_tier` unchanged. Turning it on sends `service_tier: "priority"`; turning it off explicitly sends `"default"`. Intent follows the session across eligible numbered models; other providers and unverified routes remain untouched.
+
+The usage status becomes `codex fast …` only when the next eligible numbered request is configured for priority. **This is requested mode, not proof of server support or speed.** `/codex-fast status` separately reports the last requested tier and the tier observed in `response.completed`, or `not reported`; observations are session-local and are not restored as evidence after resume. The server may return `default` despite a priority request, and priority can increase allowance/credit consumption. No cost multiplier is fabricated for numbered accounts.
+
+The guard requires the exact numbered loopback route and the recognized public proxy placeholder in Pi's model publication; a different live local port is allowed. It does not read real credentials for tier control, probe model support, send inference to test a toggle, or change billing/automatic-purchase settings. Global base-provider Fast retains its existing capability discovery and persistence behavior.
 
 ### Codex statusline percentage
 
@@ -222,6 +237,10 @@ After the active runtime credential changes, the next command, turn, or schedule
 
 ## 📊 Statusline behavior
 
+In TUI mode the existing usage item identifies numbered accounts minimally, e.g. `codex a3 fast 0% ↻ 5d50m 39.57k`; the base account remains `codex …`. Labels are lowercase, without brackets, bold, or per-account colors. The entire item uses the same quota-severity color. Pi's built-in model/thinking/token footer is not replaced.
+
+The `/usage` TUI menu emphasizes only account identity and the credit balance; other report text remains muted. `/codex-fast status` emphasizes the configured Fast preference and marks a confirmed requested/server-tier mismatch with the warning role. Missing server-tier observations are not treated as mismatches. The menu keeps terminal-control sanitization and standard navigation; RPC dialogs/notifications remain plain text.
+
 In this fork, a known Codex credit balance follows the quota windows in the **same status item**, separated by one space: `codex 5h:80% · wk:60% 43.29k`. Countdown mode keeps its existing quota layout and appends the same balance. Values use two decimal places with `k`/`M`, `∞` for unlimited, and no unit label; missing or invalid balances are omitted. The detailed `/usage` report keeps the full numeric balance. This is remaining credit, not this message's cost, and uses the existing query/cache without extra requests.
 
 Codex status text, including its inline credit balance, uses the active Pi theme's `error` color at 0% remaining, `warning` below 20%, and `success` otherwise, based on the displayed group's primary quota window (which may be weekly). This restores the retired helper's colors. Colors reflect **included quota**, not whether credit-backed inference is allowed; a red quota can coexist with usable credits. The threshold always uses remaining quota even when the displayed percentage is configured as used. Missing primary quota, other providers, and transient checking/error messages keep their existing uncolored presentation.
@@ -281,7 +300,7 @@ Behavior changes:
 
 This fork supports the selected `openai-codex-account-N` separately from the base account. It reads the exact slot from `pi-multi-account-proxy-oauth.json`, falling back only to that same slot in Pi's auth store when the sidecar entry is absent. Runtime credentials must match the stored OAuth account, or the known non-secret placeholder on that exact loopback slot route. Missing, expired, or mismatched credentials fail without switching to another account.
 
-This is an intentional **fork-only exception** to the upstream extension-neutral integration rule: it depends on pi-multi-account's private sidecar and placeholder format. Recheck compatibility when updating either fork. The integration never refreshes or writes credentials, never enables credit purchases or reset redemption, and sends usage queries only to the official Codex endpoint with account revalidation and redirects disabled. The configured-provider picker remains upstream-only; select the numbered model before running `/usage`.
+This is an intentional **fork-only exception** to the upstream extension-neutral integration rule: it depends on pi-multi-account's private sidecar and placeholder format. Recheck compatibility when updating either fork. The integration never refreshes or writes credentials, never enables credit purchases or reset redemption, and sends usage queries only to the official Codex endpoint with account revalidation and redirects disabled. Numbered Fast additionally validates the public model publication before changing request tier; it does not start a second statusline or perform an extra provider probe. The configured-provider picker remains upstream-only; select the numbered model before running `/usage`.
 
 Credential candidates are collected synchronously in memory after any compatible readiness promises settle, and are not cached, persisted, logged, formatted, or appended to the Pi session.
 The protocols carry no account name or extension identity.

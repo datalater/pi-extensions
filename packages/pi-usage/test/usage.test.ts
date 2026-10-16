@@ -256,14 +256,16 @@ test("pi-usage registers its usage and Fast commands with lifecycle hooks", () =
   usageExtension(mock.pi);
 
   assert.ok(mock.commands.has("usage"));
-  assert.ok(mock.commands.has("fast"));
+  assert.equal(mock.commands.has("fast"), false);
+  assert.ok(mock.commands.has("codex-fast"));
   assert.equal(mock.commands.has("codex-status"), false);
   assert.equal(mock.commands.get("usage")?.getArgumentCompletions, undefined);
-  assert.equal(mock.commands.get("fast")?.getArgumentCompletions, undefined);
+  assert.equal(typeof mock.commands.get("codex-fast")?.getArgumentCompletions, "function");
   assert.deepEqual([...mock.events.keys()].sort(), [
     "before_provider_request",
     "message_end",
     "model_select",
+    "provider_stream_event",
     "session_shutdown",
     "session_start",
     "session_tree",
@@ -1862,6 +1864,47 @@ test("Codex status uses quota colors for the whole inline balance, independently
     } finally {
       mock.events.get("session_shutdown")?.[0]?.({}, ctx);
     }
+  }
+});
+
+test("TUI publication keeps a minimal account label in the existing quota status without replacing the footer", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.onTestFinished(() => {
+    globalThis.fetch = originalFetch;
+  });
+  globalThis.fetch = async () =>
+    Response.json({
+      rate_limit: { primary_window: { used_percent: 100, limit_window_seconds: 604800 } },
+      credits: { has_credits: true, balance: "39570" },
+    });
+  const mock = createMockPi();
+  usageExtension(mock.pi, { settingsRuntime: memorySettingsRuntime().runtime });
+  const current = createMockContext({
+    hasUI: true,
+    mode: "tui",
+    model: codexModel,
+    theme: {
+      fg: (role: string, text: string) => `<${role}>${text}</${role}>`,
+      bold: (text: string) => `<bold>${text}</bold>`,
+    },
+    modelRegistry: {
+      getApiKeyAndHeaders: async () => ({ ok: true, apiKey: codexToken }),
+      getProviderAuth: async () => ({ auth: { apiKey: codexToken } }),
+      getAvailable: () => [codexModel],
+      getAll: () => [codexModel],
+      getProviderAuthStatus: () => ({ configured: true }),
+      getProviderDisplayName: testProviderDisplayName,
+    },
+  });
+  const { ctx, statuses } = current;
+  try {
+    await mock.events.get("session_start")?.[0]?.({}, ctx);
+    await settle();
+    assert.equal(statuses.get("usage"), "<error>codex wk:0% 39.57k</error>");
+    assert.deepEqual([...statuses.keys()], ["usage"]);
+    assert.equal(current.footer, undefined);
+  } finally {
+    mock.events.get("session_shutdown")?.[0]?.({}, ctx);
   }
 });
 

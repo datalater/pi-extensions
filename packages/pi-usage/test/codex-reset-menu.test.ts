@@ -279,6 +279,7 @@ test("TUI reset confirmation is width-safe and external disposal aborts confirme
   const base = createMockContext({
     hasUI: true,
     mode: "tui",
+    theme: { fg: (_role: string, text: string) => text, bold: (text: string) => text },
     model: codexModel,
     modelRegistry: codexRegistry(() => "codex-token"),
   }).ctx as unknown as { ui: Record<string, unknown>; [key: string]: unknown };

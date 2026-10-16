@@ -28,8 +28,8 @@ Read the pi-usage README's numbered-slot security section before changing authen
 
 ## Verification and update routine
 
-- Fork-owned source: `packages/pi-usage/src/{codex-slot-auth,query,usage,types,format}.ts`.
-- Regression cases include `packages/pi-usage/test/{codex-slot,codex-credit-statusline,usage}.test.ts`: account isolation, startup recovery, inline balance and quota colors. Upstream generated-entry/build tests cover bundled runtime loading. Test credentials are synthetic.
+- Fork-owned source includes `packages/pi-usage/src/{codex-slot-auth,codex-fast-runtime,query,usage,types,format,usage-emphasis}.ts`.
+- Regression cases include `packages/pi-usage/test/{codex-slot,codex-slot-fast,codex-credit-statusline,usage}.test.ts`: account isolation, startup recovery, inline balance, quota colors, numbered Fast controls and old session-entry restoration. Upstream generated-entry/build tests cover bundled runtime loading. Test credentials are synthetic.
 - Use the repository's native Vitest/TypeScript tooling; never import a generated chunk by its content-hashed filename.
 - Run `npm run check` and `npm test`; pack using `npm run package:pack -- usage` and load the built package with Pi before switching production.
 - Keep `upstream` pointing to the URL above. Fetch reviewed tags into a clean checkout, merge into a separate upgrade branch, resolve conflicts in source only, rebuild, and rerun checks before advancing this maintenance branch. Never force-sync over fork commits.
@@ -40,7 +40,7 @@ To roll back, check out the previous known-good commit, reinstall locked depende
 
 ## What maintenance actually involves
 
-This fork maintains **usage reporting**, not model registration, account routing, or permission to spend credits. A new model ID alone usually does not require changing the usage adapter. The companion [pi-multi-account fork](https://github.com/datalater/pi-multi-account) and Pi own catalog discovery and model-selection policy.
+This fork maintains **usage reporting and Fast request controls**, not model registration, account routing, or credit-eligibility policy. A new model ID alone usually does not require changing the usage adapter. The companion [pi-multi-account fork](https://github.com/datalater/pi-multi-account) and Pi own catalog discovery and model-selection policy.
 
 ### Automatic behavior versus manual work
 
@@ -49,7 +49,7 @@ This fork maintains **usage reporting**, not model registration, account routing
 | New numbered Codex slots | Slot IDs are recognized by pattern, not a hard-coded account list | Check only if the account manager changes naming, sidecar layout, placeholder identity or runtime auth behavior. |
 | Quota and credit values | Read from provider responses; no hand-maintained balance table | Update normalization if fields, units, windows, optional data or endpoints change. |
 | New model IDs | General Codex quota parsing is not an ID-by-ID model list | Review model-specific quota group matching when the provider introduces new groups or names. |
-| Codex Fast eligibility | Basic official `openai-codex` support is discovered from account model metadata | Check service-tier/capability schema changes, not just each new name. This does not enable the upstream `/fast` path for numbered slots. |
+| Codex Fast eligibility | Basic official `openai-codex` support is discovered from account model metadata | Check service-tier/capability schema changes, not just each new name. Numbered slots instead use explicit session intent on verified loopback routes; do not mistake that intent for catalog-confirmed support. |
 | Fast cost estimates | `src/codex-fast.ts` still contains model-dependent multipliers | Review provider pricing/tier changes; do not assume capability discovery also keeps price estimation current. |
 | Display preferences | `pi-usage.json` owns templates, used/remaining percentages and countdown settings | Edit when personal presentation preferences change; no code change is normally needed. |
 | Pi runtime and UI support | Uses host auth/registry/UI APIs and pi-tui-kit | Review host compatibility, session cancellation, rendering, and library changes on upgrade. |
@@ -82,7 +82,7 @@ Unrelated extensions' feature requests are **not our maintenance backlog** merel
 
 ### Trigger-based review routine
 
-- **New model release:** normally no usage-code edit. Check the model's quota grouping and, if using base-provider `/fast`, advertised tier support and cost estimates. Personal default/cycling preferences belong to Pi, not this package.
+- **New model release:** normally no usage-code edit. Check the model's quota grouping and, if using base-provider `/codex-fast`, advertised tier support and cost estimates. Personal default/cycling preferences belong to Pi, not this package.
 - **Usage looks wrong or fields disappear:** compare the usage endpoint and response-header contracts. Keep missing values distinct from zero; do not infer that every Pro account has the same quota windows.
 - **After updating the account-manager fork:** retest exact-slot credential resolution, placeholder/origin validation, credential rotation and refusal of wrong-account data. This private compatibility layer is one of our main fork-specific responsibilities.
 - **After updating Pi or UI libraries:** verify startup/resume before the first prompt, superseded-session cancellation, error status, theme colors and menu operation in supported modes.
@@ -102,10 +102,12 @@ The three-dot diff isolates upstream-side changes since the common ancestor. Rev
 
 - One selected numbered account, no base-account credential fallback, and no secret-bearing logs.
 - Quota and compact credit balance in one status item; detailed `/usage` retains precision.
-- Theme colors represent included quota, not credit eligibility; unknown quota is not colored as known headroom.
+- Theme colors represent included quota, not credit eligibility; unknown quota is not colored as known headroom. In TUI, the lowercase `codex a3` account label shares the quota color, without brackets or bold; Pi's built-in footer is unchanged.
+- TUI `/usage` highlights sanitized account/credit values at the Kit render boundary without allowing untrusted ANSI through. `/codex-fast status` highlights the requested setting and only confirmed server-tier mismatches. RPC remains plain text; verify narrow resizing, hard cancellation and theme-aware re-rendering using `usage-emphasis.test.ts`.
 - Startup/resume queries without requiring a prompt; identity-change retries are bounded and cancelled owners cannot publish.
 - No extra inference request, credit purchase, or reset redemption merely to refresh the display.
-- The retired `compact-codex-quota.ts` remains disabled. Multi-account polling stays enabled while its separate footer is hidden using `showUsageStatusline: false`.
+- The retired `compact-codex-quota.ts` and `codex-fast.ts` remain disabled. Multi-account polling stays enabled while its separate footer is hidden using `showUsageStatusline: false`.
+- `/codex-fast` (no arguments toggles) and explicit `on|off|status` preserve numbered-slot session intent and legacy `codex-fast` custom entries without modifying base-provider JSON preferences. Only verified proxy routes are rewritten. Last server tier is observed data, not inferred from the requested mode; no second status item or synthetic cost multiplier is added.
 
 ## Migration verification (historical)
 

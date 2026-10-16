@@ -1,11 +1,22 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { hasApi } from "@earendil-works/pi-ai";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { fingerprintResolvedAuth } from "./core.js";
-import type { ResolvedUsageAuth } from "./types.js";
+import type { PiModel, ResolvedUsageAuth } from "./types.js";
 
 export function isCodexSlot(providerId: string | undefined): providerId is string {
   return typeof providerId === "string" && /^openai-codex-account-[1-9]\d*$/.test(providerId);
+}
+
+/** Fork compatibility: require the exact slot route and the known non-secret publication. */
+export function verifiedCodexSlotRoute(model: PiModel | undefined, publications: unknown): string | undefined {
+  if (!model || !isCodexSlot(model.provider) || !hasApi(model, "openai-codex-responses")) return undefined;
+  const published = record(record(record(publications)?.providers)?.[model.provider]);
+  if (published?.apiKey !== PROXY_PLACEHOLDER_JWT || typeof published.baseUrl !== "string") return undefined;
+  if (!isSlotProxy(published.baseUrl, model.provider) || !isSlotProxy(model.baseUrl, model.provider)) return undefined;
+  // Another live session may own the canonical publication port.
+  return model.baseUrl;
 }
 
 /** Numbered slots are distinct identities, never aliases for the base account. */
